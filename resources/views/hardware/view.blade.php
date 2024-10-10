@@ -27,7 +27,7 @@
                         [
                             'warning' => trans('admin/hardware/message.warning_audit_date_mismatch',
                                     [
-                                        'last_audit_date' => Helper::getFormattedDateObject($asset->last_audit_date, 'date', false),
+                                        'last_audit_date' => Helper::getFormattedDateObject($asset->last_audit_date, 'datetime', false),
                                         'next_audit_date' => Helper::getFormattedDateObject($asset->next_audit_date, 'date', false)
                                     ]
                                     )
@@ -156,10 +156,11 @@
                                 <div class="col-md-12">
                                     <div class="callout callout-warning">
                                         <x-icon type="warning" />
-                                        {{ trans('admin/users/message.user_deleted_warning') }}
+                                        {{ trans('general.asset_deleted_warning') }}
                                     </div>
                                 </div>
                             @endif
+
                         <div class="info-stack-container">
                             <!-- Start button column -->
                             <div class="col-md-3 col-xs-12 col-sm-push-9 info-stack">
@@ -237,13 +238,33 @@
                                     </div>
                                 @endcan
 
+                                <div class="col-md-12 hidden-print" style="padding-top: 5px;">
+                                    {{ Form::open([
+                                                     'method' => 'POST',
+                                                     'route' => ['hardware/bulkedit'],
+                                                     'class' => 'form-inline',
+                                                      'target'=>'_blank',
+                                                      'id' => 'bulkForm']) }}
+                                    <input type="hidden" name="bulk_actions" value="labels" />
+                                    <input type="hidden" name="ids[{{$asset->id}}]" value="{{ $asset->id }}" />
+                                    <button class="btn btn-block btn-social btn-sm btn-default" id="bulkEdit"{{ (!$asset->model ? ' disabled' : '') }}{!! (!$asset->model ? ' data-tooltip="true" title="'.trans('admin/hardware/general.model_invalid').'"' : '') !!}>
+                                        <x-icon type="assets" />
+                                        {{ trans_choice('button.generate_labels', 1) }}</button>
+                                        {{ Form::close() }}
+                                </div>
+
                                 @can('delete', $asset)
                                     <div class="col-md-12 hidden-print" style="padding-top: 30px; padding-bottom: 30px;">
+
                                         @if ($asset->deleted_at=='')
                                             <button class="btn btn-sm btn-block btn-danger btn-social delete-asset" data-toggle="modal" data-title="{{ trans('general.delete') }}" data-content="{{ trans('general.sure_to_delete_var', ['item' => $asset->asset_tag]) }}" data-target="#dataConfirmModal">
 
                                                 <x-icon type="delete" />
-                                                {{ trans('general.delete') }}
+                                                @if ($asset->assignedTo)
+                                                    {{ trans('general.checkin_and_delete') }}
+                                                @else
+                                                    {{ trans('general.delete') }}
+                                                @endif
                                             </button>
                                             <span class="sr-only">{{ trans('general.delete') }}</span>
                                         @else
@@ -262,37 +283,53 @@
                                     <div class="col-md-12" style="text-align: left">
                                         <h2>
                                             {{ trans('admin/hardware/form.checkedout_to') }}
+                                            <x-icon type="long-arrow-right" />
                                         </h2>
-                                        <p>
+
+                                        <ul class="list-unstyled" style="line-height: 25px; font-size: 14px">
+
                                             @if (($asset->checkedOutToUser()) && ($asset->assignedTo->present()->gravatar()))
-                                                <img src="{{ $asset->assignedTo->present()->gravatar() }}" class="user-image-inline hidden-print" alt="{{ $asset->assignedTo->present()->fullName() }}">
+                                                <li>
+                                                    <img src="{{ $asset->assignedTo->present()->gravatar() }}" class="user-image-inline hidden-print" alt="{{ $asset->assignedTo->present()->fullName() }}">
+                                                    {!! $asset->assignedTo->present()->nameUrl() !!}
+                                                </li>
+                                            @else
+                                                <li>
+                                                    <x-icon type="{{ $asset->assignedType() }}" class="fa-fw" />
+                                                    {!! $asset->assignedTo->present()->nameUrl() !!}
+                                                </li>
                                             @endif
-                                        </p>
-                                        {!! $asset->assignedTo->present()->glyph() . ' ' .$asset->assignedTo->present()->nameUrl() !!}
 
 
-                                        <ul class="list-unstyled" style="line-height: 25px;">
+                                            @if ((isset($asset->assignedTo->employee_num)) && ($asset->assignedTo->employee_num!=''))
+                                                <li>
+                                                    <x-icon type="employee_num" class="fa-fw"/>
+                                                    {{ $asset->assignedTo->employee_num }}
+                                                </li>
+                                            @endif
                                             @if ((isset($asset->assignedTo->email)) && ($asset->assignedTo->email!=''))
                                                 <li>
-                                                    <x-icon type="email" />
+                                                    <x-icon type="email" class="fa-fw" />
                                                     <a href="mailto:{{ $asset->assignedTo->email }}">{{ $asset->assignedTo->email }}</a>
                                                 </li>
                                             @endif
 
                                             @if ((isset($asset->assignedTo)) && ($asset->assignedTo->phone!=''))
                                                 <li>
-                                                    <x-icon type="phone" />
+                                                    <x-icon type="phone" class="fa-fw" />
                                                     <a href="tel:{{ $asset->assignedTo->phone }}">{{ $asset->assignedTo->phone }}</a>
                                                 </li>
                                             @endif
 
                                             @if((isset($asset->assignedTo)) && ($asset->assignedTo->department))
-                                                <li>{{ trans('admin/hardware/general.user_department') }}: {{ $asset->assignedTo->department->name}}</li>
+                                                <li>
+                                                    <x-icon type="department" class="fa-fw" />
+                                                    {{ $asset->assignedTo->department->name}}</li>
                                             @endif
 
                                             @if (isset($asset->location))
                                                 <li>
-                                                    <x-icon type="locations" />
+                                                    <x-icon type="locations" class="fa-fw" />
                                                      {{ $asset->location->name }}</li>
                                                 <li>{{ $asset->location->address }}
                                                     @if ($asset->location->address2!='')
@@ -308,12 +345,12 @@
                                                 </li>
                                             @endif
                                             <li>
-                                                <x-icon type="calendar" />
+                                                <x-icon type="calendar" class="fa-fw" />
                                                 {{ trans('admin/hardware/form.checkout_date') }}: {{ Helper::getFormattedDateObject($asset->last_checkout, 'date', false) }}
                                             </li>
                                             @if (isset($asset->expected_checkin))
                                                 <li>
-                                                    <x-icon type="calendar" />
+                                                    <x-icon type="calendar" class="fa-fw" />
                                                     {{ trans('admin/hardware/form.expected_checkin') }}: {{ Helper::getFormattedDateObject($asset->expected_checkin, 'date', false) }}
                                                 </li>
                                             @endif
@@ -382,7 +419,7 @@
 
                                                 
                                                     <x-icon type="long-arrow-right" />
-                                                    {!!  $asset->assignedTo->present()->glyph()  !!}
+                                                    <x-icon type="{{ $asset->assignedType() }}" class="fa-fw" />
                                                     {!!  $asset->assignedTo->present()->nameUrl() !!}
                                                 @else
                                                     @if (($asset->assetstatus) && ($asset->assetstatus->deployable=='1'))
@@ -461,7 +498,7 @@
                                             </div>
                                             <div class="col-md-9">
                                                 {!! $asset->checkInvalidNextAuditDate() ? '<i class="fas fa-exclamation-triangle text-orange" aria-hidden="true"></i>' : '' !!}
-                                                {{ Helper::getFormattedDateObject($audit_log->created_at, 'date', false) }}
+                                                {{ Helper::getFormattedDateObject($audit_log->created_at, 'datetime', false) }}
                                                 @if ($audit_log->user)
                                                     (by {{ link_to_route('users.show', $audit_log->user->present()->fullname(), [$audit_log->user->id]) }})
                                                 @endif
@@ -623,6 +660,16 @@
                                         </div>
                                         <div class="col-md-9">
                                             {!! ($asset->byod=='1') ? '<i class="fas fa-check text-success" aria-hidden="true"></i> '.trans('general.yes') : '<i class="fas fa-times text-danger" aria-hidden="true"></i> '.trans('general.no')  !!}
+                                        </div>
+                                    </div>
+
+                                    <!-- requestable -->
+                                    <div class="row">
+                                        <div class="col-md-3">
+                                            <strong>{{ trans('admin/hardware/general.requestable') }}</strong>
+                                        </div>
+                                        <div class="col-md-9">
+                                            {!! ($asset->requestable=='1') ? '<i class="fas fa-check text-success" aria-hidden="true"></i> '.trans('general.yes') : '<i class="fas fa-times text-danger" aria-hidden="true"></i> '.trans('general.no')  !!}
                                         </div>
                                     </div>
 
@@ -1050,28 +1097,6 @@
                                         </div>
                                         <div class="col-md-9">
                                             {{ ($asset->userRequests) ? (int) $asset->userRequests->count() : '0' }}
-                                        </div>
-                                    </div>
-                                    <div class="row hidden-print">
-                                        <div class="col-md-3">
-                                            <strong>
-                                                {{ trans('general.label') }}
-                                            </strong>
-                                        </div>
-                                        <div class="col-md-9 hidden-print">
-                                            {{ Form::open([
-                                                      'method' => 'POST',
-                                                      'route' => ['hardware/bulkedit'],
-                                                      'class' => 'form-inline',
-                                                       'id' => 'bulkForm']) }}
-                                            <input type="hidden" name="bulk_actions" value="labels" />
-                                            <input type="hidden" name="ids[{{$asset->id}}]" value="{{ $asset->id }}" />
-                                            <button class="btn btn-sm btn-default" id="bulkEdit"{{ (!$asset->model ? ' disabled' : '') }}{!! (!$asset->model ? ' data-tooltip="true" title="'.trans('admin/hardware/general.model_invalid').'"' : '') !!}>
-                                                <x-icon type="assets" />
-                                                {{ trans_choice('button.generate_labels', 1) }}</button>
-
-                                            {{ Form::close() }}
-
                                         </div>
                                     </div>
                                     
